@@ -1,6 +1,6 @@
 # Page Replacement Algorithm Simulator
 
-![Project Banner](https://via.placeholder.com/800x200.png?text=Page+Replacement+Simulator)
+![Project Banner](./github-header-image.png)
 
 ## Overview
 
