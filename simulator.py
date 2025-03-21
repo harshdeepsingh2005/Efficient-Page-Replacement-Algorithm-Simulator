@@ -1,155 +1,187 @@
 import tkinter as tk
 from tkinter import ttk, messagebox
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 
-def fifo(page_refs, num_frames):
+# Function to simulate algorithms
+def simulate_fifo(pages, frames):
+    frame = []
     page_faults = 0
-    frames = []
-    fault_history = []
+    steps = []
 
-    for page in page_refs:
-        if page not in frames:
-            page_faults += 1
-            if len(frames) < num_frames:
-                frames.append(page)
+    for page in pages:
+        if page not in frame:
+            if len(frame) < frames:
+                frame.append(page)
             else:
-                frames.pop(0)
-                frames.append(page)
-        fault_history.append(list(frames))
+                frame.pop(0)
+                frame.append(page)
+            page_faults += 1
+        steps.append(frame[:])
 
-    return page_faults, fault_history
+    return steps, page_faults
 
-def lru(page_refs, num_frames):
+def simulate_lru(pages, frames):
+    frame = []
     page_faults = 0
-    frames = []
-    recent_usage = []
-    fault_history = []
+    steps = []
 
-    for page in page_refs:
-        if page not in frames:
-            page_faults += 1
-            if len(frames) < num_frames:
-                frames.append(page)
+    for page in pages:
+        if page not in frame:
+            if len(frame) < frames:
+                frame.append(page)
             else:
-                lru_page = recent_usage.pop(0)
-                frames.remove(lru_page)
-                frames.append(page)
+                frame.pop(0)
+                frame.append(page)
+            page_faults += 1
         else:
-            recent_usage.remove(page)
-        recent_usage.append(page)
-        fault_history.append(list(frames))
+            frame.remove(page)
+            frame.append(page)
+        steps.append(frame[:])
 
-    return page_faults, fault_history
+    return steps, page_faults
 
-def optimal(page_refs, num_frames):
+def simulate_optimal(pages, frames):
+    frame = []
     page_faults = 0
-    frames = []
-    fault_history = []
+    steps = []
 
-    for i in range(len(page_refs)):
-        page = page_refs[i]
-        if page not in frames:
-            page_faults += 1
-            if len(frames) < num_frames:
-                frames.append(page)
+    for i in range(len(pages)):
+        if pages[i] not in frame:
+            if len(frame) < frames:
+                frame.append(pages[i])
             else:
-                future_use = {frame: float('inf') for frame in frames}
-                for j in range(i + 1, len(page_refs)):
-                    if page_refs[j] in frames and future_use[page_refs[j]] == float('inf'):
-                        future_use[page_refs[j]] = j
-                victim = max(frames, key=lambda x: future_use[x])
-                frames.remove(victim)
-                frames.append(page)
-        fault_history.append(list(frames))
+                future = pages[i + 1:]
+                farthest = -1
+                index = -1
+                for j in range(len(frame)):
+                    if frame[j] not in future:
+                        index = j
+                        break
+                    else:
+                        pos = future.index(frame[j])
+                        if pos > farthest:
+                            farthest = pos
+                            index = j
+                frame[index] = pages[i]
+            page_faults += 1
+        steps.append(frame[:])
 
-    return page_faults, fault_history
+    return steps, page_faults
 
-def animate_results(page_refs, fault_history, algorithm_name):
-    fig, ax = plt.subplots(figsize=(10, 6))
-    ax.set_xlim(0, len(page_refs))
-    ax.set_ylim(min(page_refs) - 1, max(page_refs) + 1)
+# Popup to show steps and graph together with animation
+def show_steps_and_graph(title, steps, algorithm, page_faults):
+    step_window = tk.Toplevel(root)
+    step_window.title(title)
+    step_window.geometry("900x600")
+
+    # Frame for steps
+    steps_frame = tk.Frame(step_window)
+    steps_frame.pack(side="left", fill="both", expand=True, padx=10, pady=10)
+
+    frame_display = tk.Label(steps_frame, text="", font=("Helvetica", 16))
+    frame_display.pack(expand=True, pady=20)
+
+    # Frame for graph
+    graph_frame = tk.Frame(step_window)
+    graph_frame.pack(side="right", fill="both", expand=True, padx=10, pady=10)
+
+    fig, ax = plt.subplots()
+    ax.set_title(f"{algorithm} - Page Faults: {page_faults}")
     ax.set_xlabel("Steps")
-    ax.set_ylabel("Page Numbers")
-    ax.set_title(f"{algorithm_name} Page Replacement Animation")
-    ax.grid(True)
-    
-    lines = [ax.plot([], [], marker='o', linestyle='-', label=f"Frame {i+1}")[0] for i in range(len(fault_history[0]))]
-    
-    def update(frame_idx):
-        for i, line in enumerate(lines):
-            if i < len(fault_history[frame_idx]):
-                line.set_data(range(frame_idx + 1), [fault_history[j][i] for j in range(frame_idx + 1)])
-        return lines
-    
-    ani = animation.FuncAnimation(fig, update, frames=len(page_refs), interval=300, repeat=False)
-    plt.legend()
-    plt.show()
+    ax.set_ylabel("Pages in Frame")
 
-def simulate_algorithm(page_refs, num_frames, algorithm):
-    if algorithm == "FIFO":
-        faults, history = fifo(page_refs, num_frames)
-    elif algorithm == "LRU":
-        faults, history = lru(page_refs, num_frames)
-    elif algorithm == "Optimal":
-        faults, history = optimal(page_refs, num_frames)
-    else:
-        messagebox.showerror("Error", "Invalid Algorithm Selected")
-        return
+    x_data, y_data = [], []
+    line, = ax.plot([], [], marker="o", color="cyan")
 
-    result = f"Algorithm: {algorithm}\nPage Faults: {faults}\n\nFrame History:\n"
-    for step, frame in enumerate(history):
-        result += f"Step {step + 1}: {frame}\n"
+    canvas = FigureCanvasTkAgg(fig, master=graph_frame)
+    canvas_widget = canvas.get_tk_widget()
+    canvas_widget.pack(fill="both", expand=True)
 
-    messagebox.showinfo("Simulation Results", result)
-    animate_results(page_refs, history, algorithm)
+    def init():
+        ax.set_xlim(1, len(steps))
+        ax.set_ylim(0, max(len(frame) for frame in steps) + 1)
+        return line,
 
-def start_simulation():
-    try:
-        page_refs = list(map(int, entry_page_refs.get().split()))
-        num_frames = int(entry_num_frames.get())
-        algorithm = algo_var.get()
-        if not algorithm:
-            raise ValueError("No Algorithm Selected")
-        simulate_algorithm(page_refs, num_frames, algorithm)
-    except ValueError as e:
-        messagebox.showerror("Input Error", f"Invalid input: {e}")
+    current_step = [0]
 
-# GUI Setup
+    def update(frame):
+        if current_step[0] < len(steps):
+            frame_display.config(text=f"Step {current_step[0] + 1}: {steps[current_step[0]]}")
+            x_data.append(current_step[0] + 1)
+            y_data.append(len(steps[current_step[0]]))
+            line.set_data(x_data, y_data)
+            current_step[0] += 1
+        return line,
+
+    ani = animation.FuncAnimation(fig, update, frames=len(steps), init_func=init, blit=False, interval=1200)
+    canvas.draw()
+
+# GUI Modes
+def on_mode_selected(event):
+    selected_mode = combo_mode.get()
+    if selected_mode == "Individual":
+        algorithm_selection_window("Individual")
+    elif selected_mode == "Comparative":
+        algorithm_selection_window("Comparative")
+
+def algorithm_selection_window(mode):
+    algo_window = tk.Toplevel(root)
+    algo_window.title(f"{mode} Mode: Select Algorithm")
+    algo_window.geometry("400x300")
+
+    def simulate_selected_algorithm():
+        algorithm = combo_algorithm.get()
+        pages = list(map(int, entry_pages.get().split()))
+        frames = int(entry_frames.get())
+
+        if algorithm == "FIFO":
+            steps, page_faults = simulate_fifo(pages, frames)
+            show_steps_and_graph("FIFO Steps and Graph", steps, "FIFO", page_faults)
+        elif algorithm == "LRU":
+            steps, page_faults = simulate_lru(pages, frames)
+            show_steps_and_graph("LRU Steps and Graph", steps, "LRU", page_faults)
+        elif algorithm == "Optimal":
+            steps, page_faults = simulate_optimal(pages, frames)
+            show_steps_and_graph("Optimal Steps and Graph", steps, "Optimal", page_faults)
+        elif mode == "Comparative":
+            simulate_comparative_gui(pages, frames)
+
+    label_algo = tk.Label(algo_window, text="Select Algorithm:", font=("Arial", 12))
+    label_algo.pack(pady=10)
+
+    combo_algorithm = ttk.Combobox(algo_window, values=["FIFO", "LRU", "Optimal"], font=("Arial", 12))
+    combo_algorithm.pack(pady=5)
+
+    btn_simulate = tk.Button(algo_window, text="Simulate", command=simulate_selected_algorithm, font=("Arial", 12))
+    btn_simulate.pack(pady=20)
+
+# Main GUI setup
 root = tk.Tk()
-root.title("Page Replacement Algorithm Simulator")
-root.geometry("600x400")  # Wider window
+root.title("Page Replacement Simulator")
+root.geometry("800x600")
 
-# Apply dark theme using custom ttk style
-style = ttk.Style()
-style.theme_use("clam")
-style.configure("TLabel", background="#333333", foreground="#FFFFFF", font=("Arial", 12))
-style.configure("TEntry", fieldbackground="#555555", foreground="#FFFFFF", font=("Arial", 12))
-style.configure("TRadiobutton", background="#333333", foreground="#FFFFFF", font=("Arial", 12))
-style.configure("TButton", background="#555555", foreground="#FFFFFF", font=("Arial", 12))
-style.configure("TFrame", background="#333333")
+frame_main = tk.Frame(root, padx=20, pady=20)
+frame_main.pack(fill="both", expand=True)
 
-# Main frame
-main_frame = ttk.Frame(root)
-main_frame.pack(fill="both", expand=True, padx=20, pady=20)
+label_pages = tk.Label(frame_main, text="Enter Pages (space-separated):", font=("Arial", 12))
+label_pages.grid(row=0, column=0, sticky="w", pady=5)
 
-# Input Fields
-ttk.Label(main_frame, text="Page Reference Sequence (space-separated):").pack(pady=5)
-entry_page_refs = ttk.Entry(main_frame, width=50)
-entry_page_refs.pack(pady=5)
+entry_pages = tk.Entry(frame_main, width=30, font=("Arial", 12))
+entry_pages.grid(row=0, column=1, pady=5)
 
-ttk.Label(main_frame, text="Number of Frames:").pack(pady=5)
-entry_num_frames = ttk.Entry(main_frame, width=20)
-entry_num_frames.pack(pady=5)
+label_frames = tk.Label(frame_main, text="Enter Number of Frames:", font=("Arial", 12))
+label_frames.grid(row=1, column=0, sticky="w", pady=5)
 
-ttk.Label(main_frame, text="Select Algorithm:").pack(pady=10)
-algo_var = tk.StringVar(value="")
-ttk.Radiobutton(main_frame, text="FIFO", variable=algo_var, value="FIFO").pack()
-ttk.Radiobutton(main_frame, text="LRU", variable=algo_var, value="LRU").pack()
-ttk.Radiobutton(main_frame, text="Optimal", variable=algo_var, value="Optimal").pack()
+entry_frames = tk.Entry(frame_main, width=30, font=("Arial", 12))
+entry_frames.grid(row=1, column=1, pady=5)
 
-# Start Button
-ttk.Button(main_frame, text="Start Simulation", command=start_simulation).pack(pady=20)
+label_mode = tk.Label(frame_main, text="Select Mode:", font=("Arial", 12))
+label_mode.grid(row=2, column=0, sticky="w", pady=5)
 
-# Run the GUI
+combo_mode = ttk.Combobox(frame_main, values=["Individual", "Comparative"], font=("Arial", 12))
+combo_mode.grid(row=2, column=1, pady=5)
+combo_mode.bind("<<ComboboxSelected>>", on_mode_selected)
+
 root.mainloop()
