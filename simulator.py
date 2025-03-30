@@ -69,6 +69,16 @@ def simulate_optimal(pages, frames):
         steps.append(frame[:])
 
     return steps, page_faults
+def validate_input(pages_str, frames_str):
+    try:
+        pages = list(map(int, pages_str.split()))
+        frames = int(frames_str)
+        if frames <= 0:
+            raise ValueError("Number of frames must be positive.")
+        return pages, frames
+    except ValueError as e:
+        messagebox.showerror("Input Error", f"Invalid input: {e}")
+        return None, None
 
 # Popup to show steps and graph together with animation
 def show_steps_and_graph(title, steps, algorithm, page_faults):
@@ -115,7 +125,42 @@ def show_steps_and_graph(title, steps, algorithm, page_faults):
             current_step[0] += 1
         return line,
 
+    def pause_continue():
+        #Toggle between Pause and Continue
+        nonlocal is_paused
+        if is_paused:
+            ani.event_source.start()  #Continue the animation
+            btn_pause_continue.config(text="Pause")  # Change button text to "Pause"
+        else:
+            ani.event_source.stop()  # Pause the animation
+            btn_pause_continue.config(text="Continue")  # Change button text to "Continue"
+        is_paused = not is_paused  # Toggle the state
+
+    is_paused = False  #Track if the animation is paused
+
     ani = animation.FuncAnimation(fig, update, frames=len(steps), init_func=init, blit=False, interval=1200)
+    button_frame = tk.Frame(step_window)  # Create a frame for the buttons
+    button_frame.pack(side="top", fill="x", pady=10)
+
+    #Pause/Continue Button (same button toggling between Pause and Continue)
+    btn_pause_continue = tk.Button(button_frame, text="Pause", command=pause_continue, font=("Arial", 12))
+    btn_pause_continue.pack(side="bottom", padx=5)
+
+    def move_back():
+        nonlocal current_step
+        if current_step[0] > 0:
+            current_step[0] -= 1  # Move one step back
+            x_data.pop()  # Remove the last data point
+            y_data.pop()
+            line.set_data(x_data, y_data)  # Update the graph with new data
+            frame_display.config(text=f"Step {current_step[0]}: {steps[current_step[0]]}")  # Update text
+            canvas.draw()  # Redraw the graph
+        # btn_pause_continue.config(text="Continue")  # Change button to "Continue" since it's stopped
+        # is_paused = True
+
+    btn_move_back = tk.Button(button_frame, text="Back", command=move_back, font=("Arial", 12))
+    btn_move_back.pack(side="bottom", padx=5)
+
     canvas.draw()
 
 # GUI Modes
@@ -133,8 +178,12 @@ def algorithm_selection_window(mode):
 
     def simulate_selected_algorithm():
         algorithm = combo_algorithm.get()
-        pages = list(map(int, entry_pages.get().split()))
-        frames = int(entry_frames.get())
+        pages_str = entry_pages.get()
+        frames_str = entry_frames.get()
+        pages, frames = validate_input(pages_str, frames_str)
+
+        if pages is None or frames is None:
+            return
 
         if algorithm == "FIFO":
             steps, page_faults = simulate_fifo(pages, frames)
