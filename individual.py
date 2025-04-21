@@ -1,7 +1,7 @@
 import tkinter as tk
-from tkinter import ttk, messagebox
+from tkinter import messagebox
 from algorithms import simulate_fifo, simulate_lru, simulate_optimal
-from utils import validate_input, plot_comparative_graph
+from utils import plot_individual_graph
 
 def individual_mode():
     """Launch Individual Mode GUI."""
@@ -20,35 +20,43 @@ def individual_mode():
 
         if algorithm == "FIFO":
             steps, faults = simulate_fifo(pages, frames)
-            plot_comparative_graph(steps, [], [], faults, None, None, title=f"{algorithm} Mode")
+            plot_individual_graph(steps, faults, title=f"{algorithm} Mode")
         elif algorithm == "LRU":
             steps, faults = simulate_lru(pages, frames)
-            plot_comparative_graph([], steps, [], None, faults, None, title=f"{algorithm} Mode")
+            plot_individual_graph(steps, faults, title=f"{algorithm} Mode")
         elif algorithm == "Optimal":
             steps, faults = simulate_optimal(pages, frames)
-            plot_comparative_graph([], [], steps, None, None, faults, title=f"{algorithm} Mode")
+            plot_individual_graph(steps, faults, title=f"{algorithm} Mode")
+
+    def validate_input(pages_str, frames_str):
+        try:
+            pages = [int(x) for x in pages_str.split()]
+            frames = int(frames_str)
+            if frames <= 0:
+                raise ValueError
+            return pages, frames
+        except ValueError:
+            messagebox.showerror("Input Error", "Invalid input. Please enter valid pages and frames.")
+            return None, None
 
     # GUI setup
     root = tk.Tk()
-    root.title("Individual Mode")
-    root.geometry("400x300")
+    root.title("Page Replacement Algorithms - Individual Mode")
 
-    label_pages = tk.Label(root, text="Enter Pages (space-separated):", font=("Arial", 12))
-    label_pages.pack(pady=10)
-    entry_pages = tk.Entry(root, font=("Arial", 12))
+    tk.Label(root, text="Select Algorithm:").pack(pady=10)
+    combo_algorithm = tk.StringVar()
+    combo_algorithm.set("FIFO")
+    tk.OptionMenu(root, combo_algorithm, "FIFO", "LRU", "Optimal").pack(pady=10)
+
+    tk.Label(root, text="Enter page numbers (space-separated):").pack(pady=10)
+    entry_pages = tk.Entry(root, font=("Arial", 14))
     entry_pages.pack(pady=10)
 
-    label_frames = tk.Label(root, text="Enter Number of Frames:", font=("Arial", 12))
-    label_frames.pack(pady=10)
-    entry_frames = tk.Entry(root, font=("Arial", 12))
+    tk.Label(root, text="Enter number of frames:").pack(pady=10)
+    entry_frames = tk.Entry(root, font=("Arial", 14))
     entry_frames.pack(pady=10)
 
-    label_algo = tk.Label(root, text="Select Algorithm:", font=("Arial", 12))
-    label_algo.pack(pady=10)
-    combo_algorithm = ttk.Combobox(root, values=["FIFO", "LRU", "Optimal"], font=("Arial", 12))
-    combo_algorithm.pack(pady=10)
-
-    btn_simulate = tk.Button(root, text="Simulate", font=("Arial", 12), command=start_simulation)
-    btn_simulate.pack(pady=20)
+    start_button = tk.Button(root, text="Start Simulation", font=("Arial", 14), command=start_simulation)
+    start_button.pack(pady=20)
 
     root.mainloop()
